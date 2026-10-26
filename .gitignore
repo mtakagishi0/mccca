@@ -1,0 +1,14 @@
+/doc/
+/Meta/
+.Rproj.user
+.Rhistory
+.RData
+.httr-oauth
+.DS_Store
+.quarto
+src/*.o
+src/*.so
+src/*.dll
+vignettes/*_files
+vignettes/*.html
+.Rapp.history

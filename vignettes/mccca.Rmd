@@ -1,0 +1,267 @@
+---
+title: "Introduction to mccca"
+output: rmarkdown::html_vignette
+vignette: >
+  %\VignetteIndexEntry{Introduction to mccca}
+  %\VignetteEngine{knitr::rmarkdown}
+  %\VignetteEncoding{UTF-8}
+---
+
+```{r, include = FALSE}
+knitr::opts_chunk$set(
+  collapse = TRUE,
+  comment = "#>",
+  fig.width = 7,
+  fig.height = 6,
+  out.width = "90%"
+)
+```
+
+Multiple-class cluster correspondence analysis (MCCCA: Takagishi and van de
+Velden, 2022) is a statistical method that identifies and visualizes
+heterogeneous tendencies specific to certain "classes", specified by the
+researcher, in a low dimensional space. In MCCCA, two kinds of variables,
+external and active variables, are distinguished. External variables directly
+define the classes whereas the active variables are used to derive, for each
+class, multiple clusters of observations exhibiting similar tendencies. The
+class-specific clusters are displayed together with the categories of the
+active variables in a single biplot.
+
+In order to apply MCCCA, categorical data are required. Moreover, the data
+should consist of two types of variables: active and external variables. The
+external variables, and interactions between them, define the known classes.
+The total number of, and the distribution over, these classes may not always
+be obvious. Hence, the general flow of function usage is designed to first
+transform the data and inspect these dimensions. In particular, first, the
+data set needs to be transformed to an `mcccadata` object using
+`create.MCCCAdata()`. Next, `MCCCA()` is applied to the `mcccadata` object
+after which the results of `MCCCA()` can be visualized using `plot()`. A
+numerical summary can be obtained using `summary()`. To specify an appropriate
+number of clusters for each class, a dedicated tuning function `decideK()` can
+be used.
+
+| Function | Description |
+|---|---|
+| `create.MCCCAdata()` | Creates an `mcccadata` object which is later passed to `MCCCA()`. |
+| `MCCCA()` | Applies MCCCA to the `mcccadata` object created by `create.MCCCAdata()`. |
+| `decideK()` | Calculates the cluster index (KL index by default) to determine the number of class-specific clusters. |
+| `summary()` | Produces a detailed output for `create.MCCCAdata()`, `MCCCA()` and `decideK()`. |
+| `plot()` | Shows a biplot using quantifications estimated by `MCCCA()`. |
+
+## Example: Meal and drink preferences
+
+The `mealDrink` data, described in Section 3 of Takagishi and van de Velden
+(2022) and available in the package, consists of artificial data for 390
+observations on 4 categorical variables. For these data, the aim is to
+identify whether there are different tendencies in meal and drink preferences
+(the active variables) depending on nationality and gender (the external
+variables).
+
+```{r}
+library(mccca)
+data(mealDrink)
+```
+
+| Variable type | Variable name | Category |
+|---|---|---|
+| Active variables | Meal | Meat, Fish, Rice |
+| | Drink | Fruit juice, Tea, Milk |
+| External variables | Nationality | American, Japanese |
+| | Gender | Female, Male |
+
+As we have two binary external variables, four classes can be made. These
+classes correspond to American females, American males, Japanese females, and
+Japanese males. The characteristics of these data are as follows: most
+Americans prefer Meat and Juice, while a smaller group of American females
+select Fish and Tea. Similarly, the majority of Japanese prefer Rice and Tea,
+while a small group of the Japanese females chooses Rice and Milk. Instead of
+only focusing on majority preferences, MCCCA allows us to visualize
+heterogeneous tendencies for the subgroups defined by the categories of the
+external variables.
+
+Note that the `mealDrink` data set in mccca consists of four categorical
+variables. The first two variables are active and the last two are external.
+To apply `MCCCA()`, separate data frames consisting of the active and external
+variables are required. We can create these as follows:
+
+```{r}
+active <- c(1, 2)
+external <- c(3, 4)
+dat.act <- mealDrink[, active]
+dat.ext <- mealDrink[, external]
+```
+
+The first rows of these data are:
+
+```{r}
+head(dat.act)
+head(dat.ext)
+```
+
+Note that, when merging active and external variables from separate sources,
+the rows of the two data frames should correspond.
+
+To apply MCCCA, we need to construct the classes as defined by the external
+variables. Rather than having this done internally in the `MCCCA()` function,
+this needs to be done by applying the `create.MCCCAdata()` function. In that
+way, before applying MCCCA, the user is presented with an overview of the
+constructed classes as well as a distribution over these classes.
+
+```{r}
+mcccadata <- create.MCCCAdata(dat.act, dat.ext)
+```
+
+The data corresponding to the active and external variables are required
+arguments in `create.MCCCAdata()`. By applying `create.MCCCAdata()`, all
+classes (corresponding to the combinations of categories of the external
+variables) are created, and the numbers of observations belonging to each
+class are printed. Furthermore, the function results in an object, here
+`mcccadata`, which is a list consisting of the data set split by class, and
+the information for each class. An overview of the resulting object can be
+obtained using the `summary()` function:
+
+```{r}
+summary(mcccadata)
+```
+
+To apply MCCCA, the number of class-specific clusters needs to be specified
+using an integer vector of the appropriate length. The total number of
+"external" classes, consisting of all combinations of the external classes, is
+stored as `mcccadata$C` and can also be found in the output of `summary()`.
+For this example, the number of classes is C = 4, and we therefore need to
+define an integer vector of length 4 containing the number of class-specific
+clusters that we aim to retrieve.
+
+The numbers of the class-specific clusters need to be supplied by the user. As
+in most cluster methods, this choice is not trivial. For the `mealDrink` data,
+however, we can use the "true" (i.e., the numbers used to generate the data)
+numbers for the clusters. These true numbers are: 2 (American females), 1
+(American males), 2 (Japanese females) and 2 (Japanese males). After
+specifying this as `K.vec`, we perform MCCCA:
+
+```{r}
+K.vec <- c(2, 1, 2, 2)
+set.seed(1)
+res <- MCCCA(mcccadata, K.vec = K.vec)
+```
+
+The `MCCCA()` function requires an `mcccadata` object (i.e., a list produced
+by `create.MCCCAdata()`) and a vector with class-specific numbers of clusters
+`K.vec`. As the algorithm starts from random initial cluster assignments, we
+used `set.seed()` to make the results reproducible.
+
+We can use `plot()` to visualize the results of the MCCCA analysis. The
+resulting biplot includes labels for the class-specific clusters. By default,
+these labels are formed by combining the categories of the external variables
+(e.g., "American&female"). However, the labels may be customized using the
+`classlabel` argument. For our example, we can create more compact labels by
+only using the first letter of each class:
+
+```{r, fig.alt = "MCCCA biplot of the mealDrink data showing category points for meal and drink and bubbles for the seven class-specific clusters."}
+shortlabels <- c("AF", "AM", "JF", "JM")
+plot(res, classlabel = shortlabels)
+```
+
+Different colors and symbols are used to distinguish between categories of
+the active variables and class-specific clusters. In particular, triangle
+points correspond to categories of the active variables, and categories
+belonging to different variables are displayed using different colors. For
+the class-specific cluster points, colors indicate the classes. Moreover, each
+class-specific cluster center is represented by a bubble. The bubble sizes are
+proportional to the cluster sizes, and cluster numbers are assigned according
+to relative cluster size, where a value of 1 indicates the largest cluster
+within a class. A legend showing the class-color correspondence and a scale
+for the bubble sizes is added automatically.
+
+Note that the order of `shortlabels` should be the same as the order of
+`classlabel` in the `mcccadata` object (i.e., `mcccadata$classlabel`). There
+are many other options for customization of the visualization using the
+`plot()` function. See `?plot.mccca` for a complete overview.
+
+To inspect numerical results, in particular coordinates and fit per
+dimension, one can use `summary()`.
+
+```{r}
+summary(res)
+```
+
+The output of `summary()` consists of the estimated coordinates of
+class-specific cluster centroids and active variable category points, i.e.,
+`Gg` and `Bg`, respectively. Note that the "gamma-scaled" coordinates are
+scaled in such a way that the average squared deviation from the origin of the
+row and column points is the same (see Section 2.3 in Takagishi and van de
+Velden, 2022, for details). Furthermore, "American&female1" indicates the
+largest cluster in the "American and female" class. In the table with cluster
+centroid coordinates, cluster sizes and relative cluster sizes within each
+class are also listed. Here, we see, for example, that 10 observations belong
+to the smaller cluster of the "Japanese female" class.
+
+To assess the quality of the two-dimensional visualization, the relative
+percentages of adjusted inertias, as proposed by Benzécri (1979) (also
+described in Greenacre (1984)), can be shown along the dimensions of the
+biplot by `plot(res, show.inertia = TRUE)`. More detailed information on the
+distribution of inertia is stored in the `inertia` field. These adjusted
+inertias are obtained by applying MCA to the full data set. For our example,
+we have:
+
+```{r}
+res$inertia
+```
+
+Here, the first column gives the adjusted, the second the relative, and the
+third the cumulative inertia.
+
+### The averaging approach
+
+To further illustrate the use of MCCCA and how visualizing the class-specific
+heterogeneity improves interpretation, we apply the averaging approach and
+compare results. As the averaging approach corresponds to MCCCA with the
+numbers of all class-specific clusters set to 1, we can achieve this by
+executing:
+
+```{r}
+K.vec <- c(1, 1, 1, 1)
+res.ave <- MCCCA(mcccadata, K.vec = K.vec)
+```
+
+We can plot the results again by using `plot()`.
+
+```{r, fig.alt = "Biplot of the averaging approach for the mealDrink data with one bubble per class."}
+plot(res.ave, classlabel = shortlabels, main = "Averaging result")
+```
+
+Comparing the averaging approach with the MCCCA results shows that the
+averaging approach only reveals a single association pattern for each class,
+whereas MCCCA identifies heterogeneous tendencies within classes. For example,
+the averaging approach associates the Japanese female class with "Rice" and
+"Tea". In contrast, MCCCA reveals two distinct clusters within this class: a
+larger cluster associated with "Rice" and "Tea" and a smaller cluster
+associated with "Rice" and "Milk". Similarly, for American females, the two
+clusters differ with respect to meal preferences (i.e., Fish or Meat).
+
+## Choosing the numbers of clusters
+
+In the example above, we used the "true" number of clusters. In most real data
+applications, the number of clusters is unknown. Determining an appropriate
+number is, as in any clustering method, a difficult task as there is usually
+no objective validation measure available.
+
+The mccca package provides the function `decideK()` to assist in determining
+the number of clusters. In particular, `decideK()` performs k-means clustering
+on MCA results (i.e., the row coordinates) based on observations for each
+class, using the active variables, for a specified range of values for the
+number of clusters. It calculates the value for a specified cluster quality
+index for each number of clusters in the range, and uses these to suggest a
+choice for the number of clusters. See `?decideK` for details and an example.
+
+## References
+
+Benzécri, J.-P. (1979). Sur le calcul des taux d'inertie dans l'analyse d'un
+questionnaire. *Cahiers de l'Analyse des Données*, 4, 377--378.
+
+Greenacre, M. J. (1984). *Theory and Applications of Correspondence
+Analysis*. Academic Press, London.
+
+Takagishi, M. and van de Velden, M. (2022). Visualizing class specific
+heterogeneous tendencies in categorical data. *Journal of Computational and
+Graphical Statistics*, 31(3), 790--801. <doi:10.1080/10618600.2022.2035737>
